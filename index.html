@@ -21,7 +21,7 @@
     </div>
     
     <script type="module">
-        import { getStyleNames, dumpDomTree, recreateStyleMap } from './index.js';
+        import { getStyleNames, dumpDomTree, recreateStyleMap, dumpDomTreeInterned, recreateInternedStyleMap } from './index.js';
 
         console.log('--- dom-css-dump ---');
         
@@ -31,19 +31,43 @@
         const styleNames = getStyleNames(document.body);
         console.log(`Extracted ${styleNames.length} style properties:`, styleNames.slice(0, 10), '...');
         
-        // 2. Dump the tree
+        // 2. Dump the tree (Standard)
         const dumpedTree = dumpDomTree(appNode, styleNames);
-        console.log('Dumped Tree Representation:', dumpedTree);
+        console.log('Standard Dumped Tree:', dumpedTree);
         
-        // 3. Recreate style map for the root dumped node
-        // In our format: [tagName, ...children, styleValues] => styleValues is the last element
+        // 3. Recreate style map (Standard)
         const rootStyleValues = dumpedTree[dumpedTree.length - 1];
         const recreatedStyles = recreateStyleMap(styleNames, rootStyleValues);
-        console.log('Recreated Style Map for #app:', {
+        console.log('Standard Recreated Map for #app:', {
             margin: recreatedStyles.margin,
             padding: recreatedStyles.padding,
             backgroundColor: recreatedStyles['background-color'],
         });
+
+        console.log('--- dom-css-dump (String Interning) ---');
+
+        // 4. Dump the tree with string interning
+        const internMap = new Map();
+        const internDict = [];
+        const internedTree = dumpDomTreeInterned(appNode, styleNames, internMap, internDict);
+        
+        console.log('Interned Tree Representation:', internedTree);
+        console.log(`Intern Dictionary Size: ${internDict.length} unique values`, internDict);
+
+        // 5. Recreate style map (Interned)
+        const rootInternedStyleIds = internedTree[internedTree.length - 1];
+        const recreatedInternedStyles = recreateInternedStyleMap(styleNames, rootInternedStyleIds, internDict);
+        
+        console.log('Interned Recreated Map for #app:', {
+            margin: recreatedInternedStyles.margin,
+            padding: recreatedInternedStyles.padding,
+            backgroundColor: recreatedInternedStyles['background-color'],
+        });
+        
+        // Size comparison text
+        console.log(`Size comparison (JSON strings):`);
+        console.log(`Standard stringified length: ${JSON.stringify(dumpedTree).length} bytes`);
+        console.log(`Interned stringified length: ${JSON.stringify({ tree: internedTree, dict: internDict }).length} bytes`);
     </script>
 </body>
 </html>

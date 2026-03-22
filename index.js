@@ -64,3 +64,67 @@ export function recreateStyleMap(styleNames, styleValues) {
   }
   return styleMap;
 }
+
+/**
+ * Dumps a DOM tree starting from `node`, using string interning for computed style values.
+ * This significantly reduces the size of the generated array output.
+ * Array format: [tagName, ...children, styleValuesIdsArray]
+ * 
+ * To use this, the caller should maintain and pass a Map and an Array:
+ * const internMap = new Map(); const dict = [];
+ * const tree = dumpDomTreeInterned(node, styleNames, internMap, dict);
+ * // dict now contains the unique string values.
+ * 
+ * @param {Node} node The DOM node to start from
+ * @param {string[]} styleNames The array of style names to dump
+ * @param {Map<string, number>} internMap Map of style value to integer ID
+ * @param {string[]} internedValues Array of unique style values
+ * @returns {unknown[]} Nested array representing DOM and integer-mapped styles
+ */
+export function dumpDomTreeInterned(node, styleNames, internMap, internedValues) {
+  if (node.nodeType === Node.TEXT_NODE) {
+    const text = node.textContent.trim();
+    if (!text) return null;
+    return text;
+  }
+  
+  if (node.nodeType !== Node.ELEMENT_NODE) {
+    return null;
+  }
+  
+  const computedStyle = window.getComputedStyle(node);
+  const styleValuesIds = styleNames.map(name => {
+    const val = computedStyle.getPropertyValue(name);
+    if (!internMap.has(val)) {
+      internMap.set(val, internedValues.length);
+      internedValues.push(val);
+    }
+    return internMap.get(val);
+  });
+  
+  const children = Array.from(node.childNodes)
+    .map(child => dumpDomTreeInterned(child, styleNames, internMap, internedValues))
+    .filter(child => child !== null);
+    
+  return [
+    node.tagName.toLowerCase(),
+    ...children,
+    styleValuesIds
+  ];
+}
+
+/**
+ * Recreates the computed style object for a node mapped with string interning.
+ * @param {string[]} styleNames Array of CSS property names
+ * @param {number[]} styleValueIds Array of computed style value IDs for the node
+ * @param {string[]} internedValues Array of unique style values dictionary
+ * @returns {Record<string, string>} Object mapping style name to value
+ */
+export function recreateInternedStyleMap(styleNames, styleValueIds, internedValues) {
+  const styleMap = {};
+  for (let i = 0; i < styleNames.length; i++) {
+    const key = styleNames[i];
+    styleMap[key] = internedValues[styleValueIds[i]];
+  }
+  return styleMap;
+}
