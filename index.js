@@ -18,6 +18,20 @@ export function getStyleNames(node = document.body) {
 }
 
 /**
+ * Generates a simple 32-bit integer string hash.
+ * @param {string} str 
+ * @returns {string} Base36 string representation of the hash
+ */
+export function simpleHash(str) {
+  let hash = 0;
+  for (let i = 0, len = str.length; i < len; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return hash.toString(36);
+}
+
+/**
  * Dumps a DOM tree starting from `node`, generating a nested array representation.
  * Array format: [tagName, ...children, styleValuesArray]
  * For text nodes: "text content"
@@ -38,6 +52,7 @@ export function dumpDomTree(node, styleNames) {
   
   const computedStyle = window.getComputedStyle(node);
   const styleValues = styleNames.map(name => computedStyle.getPropertyValue(name));
+  const hash = simpleHash(styleValues.join('|'));
   
   const children = Array.from(node.childNodes)
     .map(child => dumpDomTree(child, styleNames))
@@ -46,6 +61,7 @@ export function dumpDomTree(node, styleNames) {
   return [
     node.tagName.toLowerCase(),
     ...children,
+    hash,
     styleValues
   ];
 }
@@ -101,6 +117,7 @@ export function dumpDomTreeInterned(node, styleNames, internMap, internedValues)
     }
     return internMap.get(val);
   });
+  const hash = simpleHash(styleValuesIds.join('|'));
   
   const children = Array.from(node.childNodes)
     .map(child => dumpDomTreeInterned(child, styleNames, internMap, internedValues))
@@ -109,6 +126,7 @@ export function dumpDomTreeInterned(node, styleNames, internMap, internedValues)
   return [
     node.tagName.toLowerCase(),
     ...children,
+    hash,
     styleValuesIds
   ];
 }

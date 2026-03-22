@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>DOM CSS Dump Diff Explorer</title>
+  <style>
+    :root {
+      --bg: #0f172a; --panel: rgba(30, 41, 59, 0.7);
+      --text: #f8fafc; --text-muted: #94a3b8;
+      --border: rgba(255, 255, 255, 0.1);
+      --diff-text: #ef4444; --diff-bg: rgba(239, 68, 68, 0.1);
+      --accent: #3b82f6; --accent-hover: #2563eb;
+      --font: 'Inter', system-ui, sans-serif;
+    }
+    body {
+      margin: 0; padding: 0; background: var(--bg); color: var(--text);
+      font-family: var(--font); height: 100vh; display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    header {
+      padding: 1rem 2rem; border-bottom: 1px solid var(--border);
+      background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(12px);
+      display: flex; justify-content: space-between; align-items: center;
+      z-index: 10;
+    }
+    h1 { margin: 0; font-size: 1.25rem; font-weight: 500; letter-spacing: -0.025em; }
+    .controls { display: flex; gap: 1rem; }
+    .file-input {
+      background: var(--panel); border: 1px solid var(--border);
+      padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer;
+      font-size: 0.875rem; color: var(--text-muted); transition: all 0.2s ease;
+      display: inline-flex; align-items: center;
+    }
+    .file-input:hover { border-color: var(--text-muted); color: var(--text); }
+    .file-input input { display: none; }
+    
+    main {
+      flex: 1; display: flex; overflow: hidden; position: relative;
+    }
+    .pane {
+      flex: 1; overflow-y: auto; padding: 1.5rem;
+      border-right: 1px solid var(--border);
+    }
+    .pane:last-child { border-right: none; }
+    
+    /* Tree Styles */
+    ul.tree { list-style: none; padding-left: 1.5rem; margin: 0; border-left: 1px solid rgba(255,255,255,0.05); }
+    ul.tree.root { padding-left: 0; border-left: none; }
+    li.node { margin: 0.25rem 0; }
+    .node-header {
+      display: inline-flex; align-items: center; padding: 0.25rem 0.5rem;
+      border-radius: 4px; transition: background 0.15s ease;
+      font-family: monospace; font-size: 0.85rem;
+    }
+    .node-header:hover { background: rgba(255,255,255,0.05); }
+    .node-header.diff {
+      color: #fca5a5; background: var(--diff-bg);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      cursor: pointer; box-shadow: 0 0 10px rgba(239, 68, 68, 0.1);
+    }
+    .node-header.diff:hover { background: rgba(239, 68, 68, 0.2); transform: translateX(2px); }
+    .tag { color: #60a5fa; font-weight: 600; margin-right: 0.5rem; }
+    .hash { color: #cbd5e1; font-size: 0.75rem; background: rgba(0,0,0,0.4); padding: 0.1rem 0.35rem; border-radius: 3px; }
+    .text-node { color: #86efac; font-style: italic; opacity: 0.7; font-size: 0.8rem; }
+    
+    /* Bottom Inspector */
+    #inspector {
+      position: absolute; bottom: 0; left: 0; right: 0; height: 38vh;
+      background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(16px);
+      border-top: 1px solid var(--border); box-shadow: 0 -10px 30px rgba(0,0,0,0.5);
+      display: flex; flex-direction: column; transform: translateY(100%);
+      transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); z-index: 20;
+    }
+    #inspector.open { transform: translateY(0); }
+    .inspector-header {
+      padding: 0.75rem 1.5rem; border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+      background: rgba(0,0,0,0.3);
+    }
+    
+    .diff-nav { display: flex; gap: 0.5rem; margin-left: auto; margin-right: 1.5rem; }
+    .diff-nav button {
+      background: rgba(255,255,255,0.1); color: var(--text); border: 1px solid var(--border);
+      padding: 0.4rem 0.75rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;
+      transition: all 0.2s;
+    }
+    .diff-nav button:hover { background: rgba(255,255,255,0.2); border-color: var(--text-muted); }
+    
+    .close-btn {
+      background: none; border: none; color: var(--text-muted); padding: 0.5rem;
+      cursor: pointer; font-size: 1.25rem; display: flex; align-items: center; justify-content: center;
+      border-radius: 4px; transition: background 0.2s, color 0.2s;
+    }
+    .close-btn:hover { color: var(--text); background: rgba(255,255,255,0.1); }
+    
+    .inspector-body {
+      flex: 1; display: flex; overflow: hidden;
+    }
+    .diff-pane {
+      flex: 1; overflow-y: auto; padding: 1rem 1.5rem; font-family: monospace;
+      font-size: 0.85rem; border-right: 1px solid var(--border);
+    }
+    .prop-row { display: flex; margin-bottom: 0.35rem; padding: 0.15rem 0; border-radius: 3px; transition: background 0.3s; }
+    .prop-row:hover { background: rgba(255,255,255,0.02); }
+    .prop-name { color: #94a3b8; width: 160px; flex-shrink: 0; font-weight: 500; }
+    .prop-val { color: #e2e8f0; word-break: break-all; }
+    .prop-row.changed { background: rgba(239, 68, 68, 0.15); border-left: 2px solid #ef4444; padding-left: 0.5rem; }
+    .prop-row.changed .prop-val { color: #fca5a5; font-weight: 600; }
+  </style>
+  <script>
+    // Inline mapper utilities (avoids CORS issues for local files using type="module")
+    function recreateInternedStyleMap(styleNames, styleValueIds, internedValues) {
+      const styleMap = {};
+      for (let i = 0; i < styleNames.length; i++) {
+        styleMap[styleNames[i]] = internedValues[styleValueIds[i]];
+      }
+      return styleMap;
+    }
+
+    function recreateStyleMap(styleNames, styleValues) {
+      const styleMap = {};
+      for (let i = 0; i < styleNames.length; i++) {
+        styleMap[styleNames[i]] = styleValues[i];
+      }
+      return styleMap;
+    }
+
+    let dump1 = null; let dump2 = null;
+    
+    document.addEventListener("DOMContentLoaded", () => {
+      const tree1El = document.getElementById('tree1');
+      const tree2El = document.getElementById('tree2');
+      const inspector = document.getElementById('inspector');
+      const diffPane1 = document.getElementById('diff-pane-1');
+      const diffPane2 = document.getElementById('diff-pane-2');
+      
+      document.getElementById('file1').addEventListener('change', e => handleFile(e, 1));
+      document.getElementById('file2').addEventListener('change', e => handleFile(e, 2));
+      document.getElementById('close-inspector').addEventListener('click', () => inspector.classList.remove('open'));
+      
+      // Setup delegated click handling for tree differential nodes (avoids massive addEventListener calls overhead)
+      document.querySelector('main').addEventListener('click', (e) => {
+        const header = e.target.closest('.node-header.diff');
+        if (!header) return;
+        const path = header.getAttribute('data-path');
+        if (path != null) {
+          openInspectorFromPath(path);
+        }
+      });
+      
+      let currentDiffIndex = -1;
+      let diffRowsLeft = [];
+      let diffRowsRight = [];
+      
+      document.getElementById('prev-diff').addEventListener('click', () => {
+        if (diffRowsLeft.length === 0) return;
+        currentDiffIndex = (currentDiffIndex - 1 + diffRowsLeft.length) % diffRowsLeft.length;
+        scrollToCurrentDiff();
+      });
+      
+      document.getElementById('next-diff').addEventListener('click', () => {
+        if (diffRowsLeft.length === 0) return;
+        currentDiffIndex = (currentDiffIndex + 1) % diffRowsLeft.length;
+        scrollToCurrentDiff();
+      });
+      
+      function scrollToCurrentDiff() {
+        if (currentDiffIndex >= 0 && currentDiffIndex < diffRowsLeft.length) {
+          diffRowsLeft[currentDiffIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+          diffRowsRight[currentDiffIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+          
+          diffRowsLeft.forEach(r => r.style.backgroundColor = '');
+          diffRowsRight.forEach(r => r.style.backgroundColor = '');
+          
+          diffRowsLeft[currentDiffIndex].style.backgroundColor = 'rgba(239, 68, 68, 0.4)';
+          diffRowsRight[currentDiffIndex].style.backgroundColor = 'rgba(239, 68, 68, 0.4)';
+        }
+      }
+      
+      async function handleFile(e, index) {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        // Use ID based updates so we don't accidentally thrash event listeners
+        const labelText = document.getElementById(`label-text-${index}`);
+        if(labelText) labelText.textContent = `📄 ${file.name}`;
+        
+        const labelWrap = document.getElementById(`label-wrap-${index}`);
+        if(labelWrap) {
+           labelWrap.style.color = 'var(--text)';
+           labelWrap.style.borderColor = 'var(--accent)';
+        }
+        
+        try {
+          const text = await file.text();
+          const data = JSON.parse(text);
+          if (index === 1) dump1 = normalize(data);
+          else dump2 = normalize(data);
+          
+          // Render on next tick to avoid locking UI
+          setTimeout(render, 10);
+        } catch (err) { alert('Failed to parse JSON file'); console.error(err); }
+      }
+      
+      function normalize(data) {
+        if (data.tree) return data;
+        return { tree: data.tree || data, dict: data.dict || null, styleNames: data.styleNames || [] };
+      }
+      
+      function render() {
+        if (!dump1 && !dump2) return;
+        tree1El.innerHTML = '<span style="color:#94a3b8">Rendering structure, please wait...</span>';
+        tree2El.innerHTML = '<span style="color:#94a3b8">Rendering structure, please wait...</span>';
+        
+        setTimeout(() => {
+          const t1 = dump1 ? dump1.tree : null;
+          const t2 = dump2 ? dump2.tree : null;
+          
+          if (t1) tree1El.innerHTML = renderNodeHtml(t1, t2, '0', true);
+          if (t2) tree2El.innerHTML = renderNodeHtml(t2, t1, '0', false);
+        }, 50);
+      }
+      
+      function isElementNode(node) {
+        return Array.isArray(node) && node.length >= 3;
+      }
+      
+      function getHash(node) {
+        if (!isElementNode(node)) return null;
+        return node[node.length - 2];
+      }
+      
+      function getStyles(node) {
+        if (!isElementNode(node)) return null;
+        return node[node.length - 1];
+      }
+      
+      function getChildren(node) {
+        if (!isElementNode(node)) return [];
+        return node.slice(1, node.length - 2);
+      }
+      
+      function getTagName(node) {
+        return node[0];
+      }
+
+      function escapeHtml(unsafe) {
+        return String(unsafe).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      }
+      
+      // Extremely fast HTML string builder recursion for enormous trees
+      function renderNodeHtml(node, compareNode, path, isLeft) {
+        if (!isElementNode(node)) {
+          return `<ul><li class="node"><span class="text-node">"${escapeHtml(node)}"</span></li></ul>`;
+        }
+        
+        const tag = getTagName(node);
+        const hash = getHash(node);
+        const compareHash = compareNode && isElementNode(compareNode) ? getHash(compareNode) : null;
+        const isDiff = compareNode && hash !== compareHash;
+        
+        const headerClass = isDiff ? 'node-header diff' : 'node-header';
+        const attrs = isDiff ? `data-path="${path}" title="Click to inspect diffs"` : '';
+        
+        let html = `<ul class="${path === '0' ? 'tree root' : 'tree'}"><li class="node">`;
+        html += `<div class="${headerClass}" ${attrs}><span class="tag">&lt;${tag}&gt;</span><span class="hash">${hash}</span></div>`;
+        
+        const children = getChildren(node);
+        const compChildren = compareNode ? getChildren(compareNode) : [];
+        
+        if (children.length > 0) {
+          html += '<div>';
+          for (let i = 0; i < children.length; i++) {
+            html += renderNodeHtml(children[i], compChildren[i], `${path}-${i}`, isLeft);
+          }
+          html += '</div>';
+        }
+        
+        html += `</li></ul>`;
+        return html;
+      }
+
+      function getNodeByPath(rootNode, pathStr) {
+        const parts = pathStr.split('-').map(Number);
+        let curr = rootNode;
+        for (let i = 1; i < parts.length; i++) {
+          if (!isElementNode(curr)) return null;
+          const children = getChildren(curr);
+          curr = children[parts[i]];
+        }
+        return curr;
+      }
+      
+      function resolveStyleMap(node, rootDump) {
+        if (!node || !isElementNode(node) || !rootDump.styleNames) return {};
+        const styles = getStyles(node);
+        if (rootDump.dict) {
+          return recreateInternedStyleMap(rootDump.styleNames, styles, rootDump.dict);
+        }
+        return recreateStyleMap(rootDump.styleNames, styles);
+      }
+      
+      function openInspectorFromPath(path) {
+        const nodeA = getNodeByPath(dump1?.tree, path);
+        const nodeB = getNodeByPath(dump2?.tree, path);
+        
+        inspector.classList.add('open');
+        
+        const map1 = resolveStyleMap(nodeA, dump1);
+        const map2 = resolveStyleMap(nodeB, dump2);
+        
+        const tagA = isElementNode(nodeA) ? getTagName(nodeA) : 'unknown';
+        const tagB = isElementNode(nodeB) ? getTagName(nodeB) : 'unknown';
+        
+        diffPane1.innerHTML = `<div style="color: #60a5fa; margin-bottom: 8px; font-weight: bold;">[Base] &lt;${tagA}&gt; styles</div>` + buildDiffHtml(map1, map2);
+        diffPane2.innerHTML = `<div style="color: #60a5fa; margin-bottom: 8px; font-weight: bold;">[Compare] &lt;${tagB}&gt; styles</div>` + buildDiffHtml(map2, map1);
+        
+        // Grab highlights for navigation
+        diffRowsLeft = Array.from(diffPane1.querySelectorAll('.prop-row.changed'));
+        diffRowsRight = Array.from(diffPane2.querySelectorAll('.prop-row.changed'));
+        currentDiffIndex = diffRowsLeft.length > 0 ? 0 : -1;
+        scrollToCurrentDiff();
+      }
+      
+      function buildDiffHtml(myMap, theirMap) {
+        let html = '';
+        for (const [key, val] of Object.entries(myMap)) {
+          const theirVal = theirMap[key];
+          const isDiff = val !== theirVal;
+          html += `<div class="prop-row ${isDiff ? 'changed' : ''}">
+            <span class="prop-name">${key}</span>
+            <span class="prop-val">${val}</span>
+          </div>`;
+        }
+        return html || '<div style="color:#64748b; margin-top: 10px;">No style mapping available. Use { styleNames, dict, tree } json format.</div>';
+      }
+    });
+  </script>
+</head>
+<body>
+  <header>
+    <h1><span style="color: var(--accent);">DOM</span> CSS Explorer</h1>
+    <div class="controls">
+      <label class="file-input" id="label-wrap-1">
+        <span id="label-text-1">Load Base Dump</span>
+        <input type="file" id="file1" accept=".domcssdump,.json" />
+      </label>
+      <label class="file-input" id="label-wrap-2">
+        <span id="label-text-2">Load Compare Dump</span>
+        <input type="file" id="file2" accept=".domcssdump,.json" />
+      </label>
+    </div>
+  </header>
+  
+  <main>
+    <div class="pane" id="tree1"></div>
+    <div class="pane" id="tree2"></div>
+    
+    <div id="inspector">
+      <div class="inspector-header">
+        <h3 style="margin:0;font-size:1rem;font-weight:500;">Computed Diff Extractor</h3>
+        <div class="diff-nav">
+          <button id="prev-diff">↑ Prev Diff</button>
+          <button id="next-diff">↓ Next Diff</button>
+        </div>
+        <button class="close-btn" id="close-inspector">✕</button>
+      </div>
+      <div class="inspector-body">
+        <div class="diff-pane" id="diff-pane-1"></div>
+        <div class="diff-pane" id="diff-pane-2"></div>
+      </div>
+    </div>
+  </main>
+</body>
+</html>
