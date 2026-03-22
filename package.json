@@ -1,0 +1,17 @@
+{
+  "name": "dom-css-dump",
+  "version": "1.0.0",
+  "description": "dump a dom tree with computedstyle on each node",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "dom",
+    "css",
+    "dump"
+  ],
+  "author": "",
+  "license": "ISC"
+}

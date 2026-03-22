@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>dom-css-dump test</title>
+    <style>
+        body { font-family: sans-serif; background-color: #f0f0f0; }
+        #app { margin: 2rem; padding: 1rem; background: white; border: 1px solid #ccc; border-radius: 4px; }
+        .red-text { color: red; }
+        .blue-bg { background-color: lightblue; padding: 10px; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <h1>Testing dom-css-dump</h1>
+        <p class="red-text">This text is red.</p>
+        <div class="blue-bg">
+            <p style="font-weight: bold;">This section has a lightblue background and bold text.</p>
+        </div>
+    </div>
+    
+    <script type="module">
+        import { getStyleNames, dumpDomTree, recreateStyleMap } from './index.js';
+
+        console.log('--- dom-css-dump ---');
+        
+        const appNode = document.getElementById('app');
+        
+        // 1. Get style names
+        const styleNames = getStyleNames(document.body);
+        console.log(`Extracted ${styleNames.length} style properties:`, styleNames.slice(0, 10), '...');
+        
+        // 2. Dump the tree
+        const dumpedTree = dumpDomTree(appNode, styleNames);
+        console.log('Dumped Tree Representation:', dumpedTree);
+        
+        // 3. Recreate style map for the root dumped node
+        // In our format: [tagName, ...children, styleValues] => styleValues is the last element
+        const rootStyleValues = dumpedTree[dumpedTree.length - 1];
+        const recreatedStyles = recreateStyleMap(styleNames, rootStyleValues);
+        console.log('Recreated Style Map for #app:', {
+            margin: recreatedStyles.margin,
+            padding: recreatedStyles.padding,
+            backgroundColor: recreatedStyles['background-color'],
+        });
+    </script>
+</body>
+</html>
