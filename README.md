@@ -56,3 +56,43 @@ It instantly launches a Headless Chromium build, navigates to your targeted URL,
 4. **Asynchronous Visual Tracing**: It parses tens of thousands of deeply nested DOM elements seamlessly via ultra-fast template string concatenators mapped with native EventDelegation so it'll never block the master thread.
 5. **Structural Hashes**: Any internal hashes computed by `simpleHash()` that misalign structure between the DOM boundaries actively glow Neon Red to warn you!
 6. **Live Inspector Dock**: Clicking on these mismatched differential nodes triggers the immersive inspector tray which reconstructs the CSS property mapping for both elements natively and automatically jumps you through the explicit CSS Property deviations via the "Prev/Next Diff" cyclic nav widgets!
+
+# TODO
+
+## expose dom css/xpath path of element that differs (so a user can use it in a browser)
+
+## ui improvement: 
+ - [ ] prev/next diff in the dom left and right panes
+ - [ ] synchronize scrolling
+
+## performance improvement:
+ - [ ] typed array for style values
+ - [ ] interning for dom names
+ - [ ] zip style values ?
+
+ ## cicd usage:
+ - [ ] dcd-diff dump-a dump-b -> css/xpath of first diff, number of properties differing, exit code 1 if diff > 0
+ - [ ] dcd-diff dump-a dump-b --threshold 10 -> exit code 1 if diff > 10
+ - [ ] dcd-diff dump-a dump-b --threshold 10 --json -> json output
+ - [ ] dcd-diff dump-a dump-b --threshold 10 --json --output diff.json -> json output
+ - [ ] dcd-diff dump-a dump-b --threshold 10 --json --output diff.json --verbose -> verbose output
+
+This means I need to define a dcd-dump diff format (list of css path, list of differing key-valueLeft-valueRight properties)
+Naive prototype:
+
+```json 
+{
+    "diffs": [
+    {
+        "cssPath": "/html/body/div[1]/p[1]",
+        "diffs": [
+        {
+            "key": "color",
+            "valueLeft": "red",
+            "valueRight": "blue"
+        }
+        ]
+    }
+    ]
+}
+```
