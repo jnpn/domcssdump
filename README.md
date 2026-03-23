@@ -1,4 +1,4 @@
-# dom-css-dump
+<img width="1920" height="929" alt="image" src="https://github.com/user-attachments/assets/d7090a19-e4e2-42a3-9cdb-bbae8d2e6dcb" /># dom-css-dump
 
 Quick-n-dirty DOM + computed styles dumper for debugging and diffing. Might be useful to detect changes in styles between two versions of a page.
 
@@ -56,6 +56,8 @@ It instantly launches a Headless Chromium build, navigates to your targeted URL,
 4. **Asynchronous Visual Tracing**: It parses tens of thousands of deeply nested DOM elements seamlessly via ultra-fast template string concatenators mapped with native EventDelegation so it'll never block the master thread.
 5. **Structural Hashes**: Any internal hashes computed by `simpleHash()` that misalign structure between the DOM boundaries actively glow Neon Red to warn you!
 6. **Live Inspector Dock**: Clicking on these mismatched differential nodes triggers the immersive inspector tray which reconstructs the CSS property mapping for both elements natively and automatically jumps you through the explicit CSS Property deviations via the "Prev/Next Diff" cyclic nav widgets!
+
+7. <img width="1920" height="929" alt="image" src="https://github.com/user-attachments/assets/6286cfa4-7c70-4b37-8d80-b5e64b0842ca" />
 
 # TODO
 
